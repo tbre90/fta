@@ -1,5 +1,5 @@
 extern crate regex;
-
+#[allow(unused_imports)]
 use std::env;
 use std::fs::File;
 use regex::Regex;
