@@ -1,5 +1,8 @@
+extern crate regex;
+
 use std::env;
 use std::fs::File;
+use regex::Regex;
 
 #[cfg(test)]
 mod tests;
@@ -66,7 +69,11 @@ fn header_guards(s: String) -> Vec<String> {
 }
 
 fn arrayname(s: String) -> String {
-    "arrayname".to_owned()
+    let r = Regex::new(r"[[:^alnum:]]").unwrap();
+    let result = r.replace_all(&s, "_");
+    let mut name = result.to_string();
+    name.push_str("_h");
+    name
 }
 
 fn add_file_ending(s: &mut String, fend: String) -> String {
