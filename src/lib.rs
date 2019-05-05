@@ -2,7 +2,7 @@ extern crate regex;
 #[allow(unused_imports)]
 use std::env;
 use std::fs::File;
-use std::io::{Read, Write, BufReader};
+use std::io::{BufReader, Read, Write};
 use regex::Regex;
 
 #[cfg(test)]
@@ -23,7 +23,9 @@ pub struct FtaError(pub String);
 
 impl From<std::io::Error> for FtaError {
     fn from(error: std::io::Error) -> Self {
-        FtaError{0: error.to_string()}
+        FtaError {
+            0: error.to_string(),
+        }
     }
 }
 
@@ -34,10 +36,11 @@ fn filename(s: String) -> String {
      * only want filename when creating new header file
      */
     for c in s.chars().rev() {
-        if c == '/' || c == '\\' { 
+        if c == '/' || c == '\\' {
             break;
         }
-        if c == '.' { // hit a file extension - don't want to include in header name
+        if c == '.' {
+            // hit a file extension - don't want to include in header name
             name_reverse.truncate(0);
             continue;
         }
@@ -102,7 +105,10 @@ impl Converter {
             infile_size: md.len(),
 
             out_filename: add_file_ending(&mut filename.clone(), "h".to_owned()),
-            out_header_guards: header_guards(add_file_ending(&mut filename.clone(), "h".to_owned())),
+            out_header_guards: header_guards(add_file_ending(
+                &mut filename.clone(),
+                "h".to_owned(),
+            )),
             out_array_name: arrayname(filename),
         })
     }
@@ -112,7 +118,7 @@ impl Converter {
 
         let array_start = format!("unsigned char {}[] = {{\n", self.out_array_name);
         let array_finish = "};".to_owned();
-        let array_max_width = 6; // number of columns
+        let array_max_width = 6; // number of columns TODO: add command line argument to let user decide number of columns?
 
         let mut array_content = String::new();
 
@@ -120,7 +126,9 @@ impl Converter {
 
         const READ_AMOUNT: usize = 131072;
         let mut input_buffer: Vec<u8> = Vec::with_capacity(READ_AMOUNT);
-        unsafe { input_buffer.set_len(READ_AMOUNT); }
+        unsafe {
+            input_buffer.set_len(READ_AMOUNT);
+        }
 
         let mut bufreader = BufReader::new(self.infile.try_clone()?);
 
@@ -138,12 +146,12 @@ impl Converter {
 
                 array_content.push(',');
 
-                if (idx+1) % array_max_width == 0 {
+                if (idx + 1) % array_max_width == 0 {
                     array_content.push('\n');
                 }
             }
 
-            // read whole file 
+            // read whole file
             if n as u64 >= self.infile_size {
                 break 'read_loop;
             }

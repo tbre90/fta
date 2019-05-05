@@ -9,14 +9,13 @@ fn main() {
     }
 
     let maybecnv = Converter::new(args[1].clone());
-    let cnv =
-        match maybecnv {
-            Ok(t) => t,
-            Err(err) => {
-                println!("{:?}", err);
-                return
-            }
-        };
+    let cnv = match maybecnv {
+        Ok(t) => t,
+        Err(err) => {
+            println!("{:?}", err);
+            return;
+        }
+    };
     let result = cnv.make_header();
     match result {
         Ok(_) => (),
