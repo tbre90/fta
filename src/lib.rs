@@ -2,6 +2,7 @@ extern crate regex;
 #[allow(unused_imports)]
 use std::env;
 use std::fs::File;
+use std::io::{Read, Write};
 use regex::Regex;
 
 #[cfg(test)]
@@ -9,7 +10,8 @@ mod tests;
 
 #[derive(Debug)]
 pub struct Converter {
-    in_file:  File,
+    infile: File,
+    infile_size: u64,
 
     out_filename: String,
     out_header_guards: Vec<String>, // #ifndef ... #define ... #endif
@@ -82,16 +84,67 @@ fn add_file_ending(s: &mut String, fend: String) -> String {
     s.to_string()
 }
 
+static HEX_CHARS: &'static [&'static str] = &[
+    "0", "1", "2", "3",
+    "4", "5", "6", "7",
+    "8", "9", "A", "B",
+    "C", "D", "E", "F",
+];
+
 impl Converter {
     pub fn new(infile: String) -> Result<Converter, FtaError> {
         let inf = File::open(infile.clone())?;
+        let md  = File::metadata(&inf)?;
 
         let filename = filename(infile);
         Ok(Converter {
-            in_file: inf,
+            infile: inf,
+            infile_size: md.len(),
+
             out_filename: add_file_ending(&mut filename.clone(), "h".to_owned()),
             out_header_guards: header_guards(add_file_ending(&mut filename.clone(), "h".to_owned())),
             out_array_name: arrayname(filename),
         })
+    }
+
+    pub fn make_header(&self) -> Result<(), FtaError> {
+        let mut out_file = File::create(self.out_filename.clone())?;
+
+        let array_start = format!("unsigned char {}[] = {{\n", self.out_array_name);
+        let array_finish = "};".to_owned();
+
+        let mut array_content = String::new();
+        let array_max_width = 6; // number of columns
+
+        array_content.push_str(&array_start);
+
+        let mut buffer: Vec<u8> = vec!();
+
+        // needed because .take() consumes self
+        let fh = self.infile.try_clone()?;
+        let mut reader = fh.take(65536);
+
+        let n = reader.read_to_end(&mut buffer)?;
+
+        for (idx, byte) in buffer.iter().enumerate() {
+            array_content.push_str("0x");
+            array_content.push_str(HEX_CHARS[(byte >> 4) as usize]);
+            array_content.push_str(HEX_CHARS[(byte << 4 >> 4) as usize]);
+
+            array_content.push(',');
+
+            if (idx+1) % array_max_width == 0 {
+                array_content.push('\n');
+            }
+        }
+
+        let _ = array_content.pop();
+        array_content.push('\n');
+
+        array_content.push_str(&array_finish);
+
+        out_file.write_all(&array_content.into_bytes())?;
+
+        Ok(())
     }
 }

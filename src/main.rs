@@ -1,3 +1,5 @@
+use fta::Converter;
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
@@ -6,7 +8,21 @@ fn main() {
         return;
     }
 
-    for s in args {
-        println!("{}", s);
+    let maybecnv = Converter::new(args[1].clone());
+    let cnv =
+        match maybecnv {
+            Ok(t) => t,
+            Err(err) => {
+                println!("{:?}", err);
+                return
+            }
+        };
+    let result = cnv.make_header();
+    match result {
+        Ok(_) => (),
+        Err(err) => {
+            println!("{:?}", err);
+            ()
+        }
     }
 }
