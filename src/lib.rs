@@ -2,7 +2,7 @@ extern crate regex;
 #[allow(unused_imports)]
 use std::env;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{Read, Write, BufReader};
 use regex::Regex;
 
 #[cfg(test)]
@@ -112,29 +112,40 @@ impl Converter {
 
         let array_start = format!("unsigned char {}[] = {{\n", self.out_array_name);
         let array_finish = "};".to_owned();
+        let array_max_width = 6; // number of columns
 
         let mut array_content = String::new();
-        let array_max_width = 6; // number of columns
 
         array_content.push_str(&array_start);
 
-        let mut buffer: Vec<u8> = vec!();
+        const READ_AMOUNT: usize = 131072;
+        let mut input_buffer: Vec<u8> = Vec::with_capacity(READ_AMOUNT);
+        unsafe { input_buffer.set_len(READ_AMOUNT); }
 
-        // needed because .take() consumes self
-        let fh = self.infile.try_clone()?;
-        let mut reader = fh.take(65536);
+        let mut bufreader = BufReader::new(self.infile.try_clone()?);
 
-        let n = reader.read_to_end(&mut buffer)?;
+        let mut n: usize = 0;
 
-        for (idx, byte) in buffer.iter().enumerate() {
-            array_content.push_str("0x");
-            array_content.push_str(HEX_CHARS[(byte >> 4) as usize]);
-            array_content.push_str(HEX_CHARS[(byte << 4 >> 4) as usize]);
+        'read_loop: loop {
+            input_buffer.truncate(0);
+            let mut r = bufreader.by_ref().take(READ_AMOUNT as u64);
+            n += r.read_to_end(&mut input_buffer)?;
 
-            array_content.push(',');
+            for (idx, byte) in input_buffer.iter().enumerate() {
+                array_content.push_str("0x");
+                array_content.push_str(HEX_CHARS[(byte >> 4) as usize]);
+                array_content.push_str(HEX_CHARS[(byte << 4 >> 4) as usize]);
 
-            if (idx+1) % array_max_width == 0 {
-                array_content.push('\n');
+                array_content.push(',');
+
+                if (idx+1) % array_max_width == 0 {
+                    array_content.push('\n');
+                }
+            }
+
+            // read whole file 
+            if n as u64 >= self.infile_size {
+                break 'read_loop;
             }
         }
 
